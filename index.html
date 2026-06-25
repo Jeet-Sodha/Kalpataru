@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Kalpataru Summit — AR Experience</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { width: 100%; height: 100%; overflow: hidden; background: #000; }
+
+    /* ── Scan hint ── */
+    #scan-hint {
+      position: fixed; top: 18px; left: 50%; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 9px;
+      padding: 11px 20px; border-radius: 40px;
+      background: linear-gradient(135deg,#0f2318 0%,#071510 100%);
+      border: 1px solid rgba(201,168,76,.35);
+      box-shadow: 0 6px 24px rgba(0,0,0,.55);
+      font-family:'Inter',sans-serif; font-size:13px; font-weight:600;
+      color:#c9a84c; letter-spacing:.07em; white-space:nowrap;
+      z-index:9999;
+    }
+    #scan-hint .dot {
+      width:8px; height:8px; border-radius:50%;
+      background:#c9a84c; flex-shrink:0;
+      animation:pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1);}  50%{opacity:.35;transform:scale(.8);} }
+    #scan-hint.hide { display:none!important; }
+
+    /* ── Amenities panel (left) ── */
+    #amen-panel {
+      position:fixed; left:0; top:50%; transform:translateY(-50%);
+      width:clamp(140px, 27vw, 210px);
+      max-height:88vh;
+      display:none; flex-direction:column; gap:0;
+      padding:14px 11px 12px;
+      background:linear-gradient(160deg,rgba(8,22,14,.97) 0%,rgba(4,12,8,.98) 100%);
+      border:1px solid rgba(201,168,76,.28);
+      border-left:none;
+      border-radius:0 12px 12px 0;
+      box-shadow: 6px 0 28px rgba(0,0,0,.5), inset 0 1px 0 rgba(201,168,76,.12);
+      backdrop-filter:blur(12px);
+      z-index:300;
+      overflow:hidden;
+    }
+    #amen-panel.show { display:flex; animation:slideInLeft .5s cubic-bezier(.25,.46,.45,.94); }
+    @keyframes slideInLeft { from{opacity:0;transform:translateY(-50%) translateX(-30px);}  to{opacity:1;transform:translateY(-50%) translateX(0);} }
+
+    .amen-header {
+      font-family:'Cormorant Garamond',serif;
+      font-size:11.5px; font-weight:700; color:#c9a84c;
+      letter-spacing:.14em; text-transform:uppercase;
+      text-align:center; padding-bottom:9px; margin-bottom:9px;
+      border-bottom:1px solid rgba(201,168,76,.25);
+      line-height:1.3;
+    }
+    .amen-row {
+      display:flex; align-items:center; gap:7px;
+      padding:5px 8px; border-radius:7px;
+      background:rgba(201,168,76,.05);
+      border-left:2px solid rgba(201,168,76,.25);
+      margin-bottom:4px;
+      opacity:0; transform:translateX(-14px);
+      transition:opacity .38s ease, transform .38s ease;
+    }
+    .amen-row.in { opacity:1; transform:translateX(0); }
+    .amen-icon { font-size:13px; width:18px; text-align:center; flex-shrink:0; }
+    .amen-label {
+      font-family:'Inter',sans-serif; font-size:9.8px;
+      color:#ddd8cc; font-weight:500; letter-spacing:.02em;
+      line-height:1.25;
+    }
+    /* Shine accent */
+    #amen-panel::after {
+      content:''; position:absolute; top:0; left:0; right:0; height:1px;
+      background:linear-gradient(90deg,transparent,rgba(201,168,76,.5),transparent);
+    }
+
+    /* ── Reel overlay (center-right) ── */
+    #reel-wrap {
+      position:fixed; z-index:250;
+      display:none;
+      border-radius:10px;
+      overflow:hidden;
+      box-shadow:0 0 0 2px rgba(201,168,76,.45), 0 12px 40px rgba(0,0,0,.7);
+    }
+    #reel-wrap.show { display:block; animation:popIn .55s cubic-bezier(.34,1.56,.64,1); }
+    @keyframes popIn { from{opacity:0;transform:scale(.88);}  to{opacity:1;transform:scale(1);} }
+    #reel-frame { width:100%; height:100%; border:none; display:block; background:#000; }
+
+    /* Gold corner accents on reel */
+    #reel-wrap::before, #reel-wrap::after {
+      content:''; position:absolute; width:18px; height:18px; z-index:10; pointer-events:none;
+    }
+    #reel-wrap::before { top:5px; left:5px; border-top:2px solid #c9a84c; border-left:2px solid #c9a84c; }
+    #reel-wrap::after  { bottom:5px; right:5px; border-bottom:2px solid #c9a84c; border-right:2px solid #c9a84c; }
+
+    /* ── Property image (far right) ── */
+    #prop-wrap {
+      position:fixed; z-index:250;
+      display:none;
+      border-radius:8px; overflow:hidden;
+      box-shadow:0 0 0 1.5px rgba(201,168,76,.35), 0 8px 28px rgba(0,0,0,.6);
+    }
+    #prop-wrap.show { display:block; animation:fadeUp .7s ease .3s both; }
+    @keyframes fadeUp { from{opacity:0;transform:translateY(18px);} to{opacity:1;transform:translateY(0);} }
+    #prop-img-el { width:100%; height:100%; object-fit:cover; display:block; }
+    #prop-caption {
+      position:absolute; bottom:0; left:0; right:0;
+      padding:6px 8px;
+      background:linear-gradient(to top,rgba(5,15,10,.92) 0%,transparent 100%);
+      font-family:'Cormorant Garamond',serif;
+      font-size:9.5px; font-weight:700; color:#c9a84c;
+      letter-spacing:.1em; text-align:center; text-transform:uppercase;
+    }
+
+    /* ── Bottom social bar ── */
+    #social-bar {
+      position:fixed; bottom:0; left:0; right:0;
+      display:none; flex-direction:column; align-items:center; gap:8px;
+      padding:12px 20px 18px;
+      background:linear-gradient(to top,rgba(5,14,9,.96) 60%,transparent);
+      z-index:400;
+    }
+    #social-bar.show { display:flex; animation:slideUp .45s ease; }
+    @keyframes slideUp { from{opacity:0;transform:translateY(14px);} to{opacity:1;transform:translateY(0);} }
+    .brand-name {
+      font-family:'Cormorant Garamond',serif;
+      font-size:13px; font-weight:700; color:#c9a84c;
+      letter-spacing:.15em; text-transform:uppercase;
+    }
+    .social-links { display:flex; gap:9px; }
+    .soc-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:8px 16px; border-radius:22px; border:none;
+      font-family:'Inter',sans-serif; font-size:12px; font-weight:600;
+      cursor:pointer; text-decoration:none; color:#fff;
+      transition:transform .18s,box-shadow .18s;
+    }
+    .soc-btn:hover { transform:translateY(-2px); }
+    .soc-btn.insta {
+      background:linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888);
+      box-shadow:0 4px 18px rgba(220,39,67,.4);
+    }
+    .soc-btn.web {
+      background:linear-gradient(135deg,#1a5c3a,#0d3d26);
+      border:1px solid rgba(201,168,76,.35); color:#c9a84c;
+      box-shadow:0 4px 18px rgba(13,61,38,.5);
+    }
+    .soc-icon { width:14px; height:14px; fill:currentColor; flex-shrink:0; }
+
+    /* ── Sound toggle ── */
+    #snd-btn {
+      position:fixed; top:18px; right:16px;
+      width:40px; height:40px; border-radius:50%;
+      background:rgba(8,20,13,.85); border:1px solid rgba(201,168,76,.35);
+      color:#c9a84c; font-size:16px;
+      display:none; align-items:center; justify-content:center;
+      cursor:pointer; z-index:9999; backdrop-filter:blur(8px);
+      transition:background .2s;
+    }
+    #snd-btn.show { display:flex; }
+    #snd-btn:hover { background:rgba(201,168,76,.18); }
+  </style>
+</head>
+<body>
+
+<!-- Scan hint -->
+<div id="scan-hint"><span class="dot"></span>Point camera at Kalpataru card</div>
+
+<!-- Sound toggle -->
+<button id="snd-btn" aria-label="Toggle sound">🔊</button>
+
+<!-- Amenities panel -->
+<div id="amen-panel">
+  <div class="amen-header">World-Class<br>Amenities</div>
+  <div id="amen-list"></div>
+</div>
+
+<!-- Instagram reel -->
+<div id="reel-wrap">
+  <iframe id="reel-frame" src="" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>
+</div>
+
+<!-- Property image -->
+<div id="prop-wrap">
+  <img id="prop-img-el" src="https://d2j4tkbto6uvqv.cloudfront.net/kalpataru/697b55d8393dd.jpg"
+       alt="Kalpataru Summit exterior" crossorigin="anonymous"/>
+  <div id="prop-caption">Mulund (W) · Mumbai</div>
+</div>
+
+<!-- Social bar -->
+<div id="social-bar">
+  <div class="brand-name">Kalpataru Summit</div>
+  <div class="social-links">
+    <a class="soc-btn insta" href="https://www.instagram.com/kalpatarulimited/" target="_blank" rel="noopener">
+      <svg class="soc-icon" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+      Instagram
+    </a>
+    <a class="soc-btn web" href="https://www.kalpataru.com/" target="_blank" rel="noopener">
+      <svg class="soc-icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      Website
+    </a>
+  </div>
+</div>
+
+<!-- A-Frame scene — minimal, just for tracking -->
+<a-scene
+  mindar-image="imageTargetSrc:./targets.mind; filterMinCF:0.005; filterBeta:7000; missTolerance:10; warmupTolerance:5;"
+  vr-mode-ui="enabled:false"
+  device-orientation-permission-ui="enabled:false"
+  renderer="logarithmicDepthBuffer:true; colorManagement:true;"
+  style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:1;">
+  <a-camera position="0 0 0" look-controls="enabled:false"></a-camera>
+  <a-entity id="target-0" mindar-image-target="targetIndex:0">
+    <!-- Invisible anchor plane matching landscape card 1.29:1 -->
+    <a-plane width="1.29" height="1" material="opacity:0;transparent:true"></a-plane>
+  </a-entity>
+</a-scene>
+
+<script>
+// ══════════════════════════════════════════
+//  KALPATARU SUMMIT · AR controller
+// ══════════════════════════════════════════
+const AMENITIES = [
+  {icon:'🏋️', label:'Gymnasium'},
+  {icon:'🏛️', label:'Clubhouse'},
+  {icon:'🏊', label:'Kids Pool'},
+  {icon:'🌿', label:'Landscaped Garden'},
+  {icon:'🎬', label:'Mini-Theatre'},
+  {icon:'🎱', label:'Pool Table Room'},
+  {icon:'💦', label:'Swimming Pool & Sunken Lounge'},
+  {icon:'🎵', label:'Music Room'},
+];
+
+const REEL_SRC = 'https://www.instagram.com/kalpatarulimited/reel/DZuo7YbM-Fh/embed/captioned/?cr=1&v=14&wp=540&rd=https%3A%2F%2Fwww.instagram.com&rp=%2Fp%2FDZuo7YbM-Fh%2Fembedded%2Fcaptioned%2F#%7B%22ci%22%3A0%2C%22os%22%3A3045.1%7D';
+// Simpler embed URL that actually autoplays:
+const REEL_EMBED = 'https://www.instagram.com/p/DZuo7YbM-Fh/embed/';
+
+// ── Build amenity rows ──
+const amenList = document.getElementById('amen-list');
+AMENITIES.forEach((a,i) => {
+  const row = document.createElement('div');
+  row.className = 'amen-row';
+  row.dataset.idx = i;
+  row.innerHTML = `<span class="amen-icon">${a.icon}</span><span class="amen-label">${a.label}</span>`;
+  amenList.appendChild(row);
+});
+
+// ── Layout overlays proportional to viewport ──
+function layoutOverlays() {
+  const vw = window.innerWidth, vh = window.innerHeight;
+
+  // Amenities panel — flush left, vertically centred (CSS handles this)
+  const amenW = Math.min(Math.max(vw * 0.28, 138), 210);
+  const panel = document.getElementById('amen-panel');
+  panel.style.width = amenW + 'px';
+
+  // Reel — centre-right of screen
+  // Target image is landscape, so AR fills most of viewport
+  // Reel sits at ~35–72% x, centre y
+  const reelW = Math.min(Math.max(vw * 0.31, 130), 240);
+  const reelH = Math.round(reelW * 1.78); // Instagram reel 9:16
+  const reelCapH = Math.min(reelH, vh * 0.78);
+  const reelEl = document.getElementById('reel-wrap');
+  reelEl.style.width  = reelW + 'px';
+  reelEl.style.height = reelCapH + 'px';
+  reelEl.style.left   = Math.round(vw * 0.33) + 'px';
+  reelEl.style.top    = Math.round((vh - reelCapH) / 2) + 'px';
+
+  // Property image — far right
+  const propW = Math.min(Math.max(vw * 0.29, 120), 220);
+  const propH = Math.round(propW * 0.65);
+  const propEl = document.getElementById('prop-wrap');
+  propEl.style.width  = propW + 'px';
+  propEl.style.height = propH + 'px';
+  propEl.style.right  = Math.round(vw * 0.01) + 'px';
+  propEl.style.top    = Math.round(vh * 0.08) + 'px';
+}
+window.addEventListener('resize', layoutOverlays);
+layoutOverlays();
+
+// ── Detection state ──
+let active = false;
+let reelLoaded = false;
+
+function showAll() {
+  layoutOverlays();
+
+  document.getElementById('scan-hint').classList.add('hide');
+  document.getElementById('snd-btn').classList.add('show');
+  document.getElementById('social-bar').classList.add('show');
+
+  // Amenities panel
+  const panel = document.getElementById('amen-panel');
+  panel.classList.add('show');
+  const rows = amenList.querySelectorAll('.amen-row');
+  rows.forEach((r, i) => {
+    setTimeout(() => r.classList.add('in'), 300 + i * 90);
+  });
+
+  // Reel
+  const reelEl = document.getElementById('reel-wrap');
+  reelEl.classList.add('show');
+  if (!reelLoaded) {
+    document.getElementById('reel-frame').src = REEL_EMBED;
+    reelLoaded = true;
+  }
+
+  // Property image
+  document.getElementById('prop-wrap').classList.add('show');
+}
+
+function hideAll() {
+  document.getElementById('scan-hint').classList.remove('hide');
+  document.getElementById('snd-btn').classList.remove('show');
+  document.getElementById('social-bar').classList.remove('show');
+
+  document.getElementById('amen-panel').classList.remove('show');
+  amenList.querySelectorAll('.amen-row').forEach(r => r.classList.remove('in'));
+
+  document.getElementById('reel-wrap').classList.remove('show');
+  // Pause reel by clearing src — resume on next detection
+  document.getElementById('reel-frame').src = '';
+  reelLoaded = false;
+
+  document.getElementById('prop-wrap').classList.remove('show');
+}
+
+// ── A-Frame target events ──
+const targetEl = document.getElementById('target-0');
+
+targetEl.addEventListener('targetFound', () => {
+  if (active) return;
+  active = true;
+  showAll();
+});
+
+targetEl.addEventListener('targetLost', () => {
+  if (!active) return;
+  active = false;
+  hideAll();
+});
+
+// ── Sound toggle (visual only; Instagram embed manages its own audio) ──
+document.getElementById('snd-btn').addEventListener('click', function () {
+  this.textContent = this.textContent === '🔊' ? '🔇' : '🔊';
+});
+</script>
+</body>
+</html>
