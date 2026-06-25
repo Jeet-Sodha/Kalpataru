@@ -86,82 +86,6 @@
     }
     #target-status.hidden { display: none; }
 
-    /* ── Amenities panel (left) ── */
-    #amenities-panel {
-      position: fixed;
-      top: 50%;
-      left: 12px;
-      transform: translateY(-50%) translateX(-110%);
-      width: min(210px, 42vw);
-      z-index: 9998;
-      opacity: 0;
-      pointer-events: none;
-      transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s ease;
-    }
-    #amenities-panel.visible {
-      transform: translateY(-50%) translateX(0);
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .amenities-card {
-      background: var(--glass);
-      backdrop-filter: blur(14px);
-      -webkit-backdrop-filter: blur(14px);
-      border: 1px solid var(--glass-border);
-      border-radius: 16px;
-      padding: 16px 14px 14px;
-      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
-    }
-    .amenities-card h2 {
-      margin: 0 0 12px;
-      font-family: var(--font-display);
-      font-size: 20px;
-      font-weight: 700;
-      color: var(--gold);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
-      line-height: 1.1;
-      border-bottom: 1px solid var(--gold-soft);
-      padding-bottom: 10px;
-    }
-    .amenities-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 7px;
-    }
-    .amenities-list li {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-family: var(--font);
-      font-size: 11.5px;
-      font-weight: 500;
-      color: rgba(255, 255, 255, 0.92);
-      line-height: 1.25;
-      opacity: 0;
-      transform: translateX(-12px);
-      animation: amenity-in 0.5s ease forwards;
-    }
-    .amenities-list li .icon {
-      flex-shrink: 0;
-      width: 26px;
-      height: 26px;
-      border-radius: 8px;
-      background: linear-gradient(135deg, var(--teal-light), var(--teal));
-      border: 1px solid var(--gold-soft);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 13px;
-    }
-    @keyframes amenity-in {
-      to { opacity: 1; transform: translateX(0); }
-    }
-
     /* ── Social bar (bottom) ── */
     #social-bar {
       position: fixed;
@@ -236,25 +160,10 @@
       user-select: none;
     }
     #video-audio-toggle.visible { display: block; }
-
-    @media (max-width: 480px) {
-      #amenities-panel { width: min(185px, 44vw); left: 8px; }
-      .amenities-card h2 { font-size: 17px; }
-      .amenities-list li { font-size: 10.5px; }
-      .social-link { padding: 9px 14px; font-size: 12px; }
-      .social-link span.label { display: none; }
-    }
   </style>
 </head>
 <body>
   <div id="target-status">Point camera at Kalpataru card</div>
-
-  <div id="amenities-panel" aria-hidden="true">
-    <div class="amenities-card">
-      <h2>Premium Amenities</h2>
-      <ul class="amenities-list" id="amenities-list"></ul>
-    </div>
-  </div>
 
   <div id="social-bar" aria-hidden="true">
     <a class="social-link insta" href="https://www.instagram.com/kalpatarulimited/" target="_blank" rel="noopener">
@@ -284,34 +193,25 @@
         webkit-playsinline
         crossorigin="anonymous"
       ></video>
+      <canvas id="amenities-canvas" width="480" height="640"></canvas>
     </a-assets>
 
     <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
 
     <a-entity id="target-0" mindar-image-target="targetIndex: 0">
-      <!-- Card overlay (landscape 1072×831) -->
-      <a-image
-        id="main-img"
-        src="kalpataru-card.png"
-        position="0 0 0.01"
-        width="1"
-        height="0.775"
-      ></a-image>
-
-      <!-- Center: Instagram reel -->
+      <!-- Reel replaces card overlay — flat on detected marker -->
       <a-video
         class="ar-layer"
         id="reel-video"
         src="#reel-vid"
-        position="0 0.04 0.06"
-        width="0.38"
-        height="0.67"
+        position="0 0 0.02"
+        width="1"
+        height="0.775"
         material="opacity: 0; transparent: true"
-        animation__in="property: material.opacity; from: 0; to: 1; dur: 1200; easing: easeInOutSine; fill: forwards; startEvents: playIn"
-        animation__pos="property: position; from: 0 0 -0.08; to: 0 0.04 0.06; dur: 1200; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+        animation__in="property: material.opacity; from: 0; to: 1; dur: 1000; easing: easeInOutSine; fill: forwards; startEvents: playIn"
       ></a-video>
 
-      <!-- Right: building render -->
+      <!-- Left: building render -->
       <a-image
         class="ar-layer"
         id="building-img"
@@ -321,21 +221,21 @@
         height="0.54"
         material="opacity: 0"
         animation__opacity="property: material.opacity; from: 0; to: 1; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
-        animation__position="property: position; from: 0 0 -0.1; to: 0.82 0 0.05; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+        animation__position="property: position; from: 0 0 -0.1; to: -0.82 0 0.05; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
       ></a-image>
 
-      <!-- Decorative gold frame around video -->
-      <a-plane
+      <!-- Right: amenities panel (3D canvas texture) -->
+      <a-image
         class="ar-layer"
-        id="video-frame"
-        position="0 0.04 0.055"
-        width="0.41"
-        height="0.70"
-        color="#c9a84c"
-        material="opacity: 0; shader: flat"
-        animation__opacity="property: material.opacity; from: 0; to: 0.55; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
-        animation__position="property: position; from: 0 0 -0.08; to: 0 0.04 0.055; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
-      ></a-plane>
+        id="amenities-img"
+        src="#amenities-canvas"
+        position="0 0 -0.1"
+        width="0.42"
+        height="0.56"
+        material="opacity: 0"
+        animation__opacity="property: material.opacity; from: 0; to: 1; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+        animation__position="property: position; from: 0 0 -0.1; to: 0.82 0 0.05; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+      ></a-image>
     </a-entity>
   </a-scene>
 
@@ -353,34 +253,132 @@
 
     var CARD_W = 1;
     var CARD_H = 831 / 1072;
-    var VIDEO_MAX = 0.68;
-    var BUILDING_MAX = 0.58;
+    var SIDE_MAX = 0.58;
     var savedVideoTime = 0;
 
     var statusEl = document.getElementById('target-status');
-    var amenitiesPanel = document.getElementById('amenities-panel');
     var socialBar = document.getElementById('social-bar');
     var audioBtn = document.getElementById('video-audio-toggle');
     var targetEl = document.getElementById('target-0');
     var reelVid = document.getElementById('reel-vid');
     var reelVideoEl = document.getElementById('reel-video');
+    var amenitiesCanvas = document.getElementById('amenities-canvas');
+    var amenitiesImgEl = document.getElementById('amenities-img');
 
     var layerFromPositions = {
-      'reel-video': '0 0 -0.08',
+      'reel-video': '0 0 0.02',
       'building-img': '0 0 -0.1',
-      'video-frame': '0 0 -0.08'
+      'amenities-img': '0 0 -0.1'
     };
 
-    // Build amenities list with staggered animation delays
-    (function buildAmenities() {
-      var list = document.getElementById('amenities-list');
-      AMENITIES.forEach(function (item, i) {
-        var li = document.createElement('li');
-        li.style.animationDelay = (0.15 + i * 0.08) + 's';
-        li.innerHTML = '<span class="icon">' + item.icon + '</span><span>' + item.label + '</span>';
-        list.appendChild(li);
+    function drawAmenitiesCanvas() {
+      if (!amenitiesCanvas) return;
+      var ctx = amenitiesCanvas.getContext('2d');
+      var w = amenitiesCanvas.width;
+      var h = amenitiesCanvas.height;
+      var pad = 22;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Background
+      var bg = ctx.createLinearGradient(0, 0, w, h);
+      bg.addColorStop(0, 'rgba(8, 32, 32, 0.96)');
+      bg.addColorStop(1, 'rgba(6, 46, 46, 0.96)');
+      roundRect(ctx, 0, 0, w, h, 18);
+      ctx.fillStyle = bg;
+      ctx.fill();
+
+      // Gold border
+      ctx.strokeStyle = 'rgba(201, 168, 76, 0.55)';
+      ctx.lineWidth = 3;
+      roundRect(ctx, 2, 2, w - 4, h - 4, 16);
+      ctx.stroke();
+
+      // Title
+      ctx.fillStyle = '#c9a84c';
+      ctx.font = '700 28px Georgia, serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Premium', w / 2, pad + 28);
+      ctx.fillText('Amenities', w / 2, pad + 58);
+
+      ctx.strokeStyle = 'rgba(201, 168, 76, 0.35)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad, pad + 72);
+      ctx.lineTo(w - pad, pad + 72);
+      ctx.stroke();
+
+      // List items
+      var y = pad + 98;
+      var rowH = 58;
+      AMENITIES.forEach(function (item) {
+        // Icon box
+        roundRect(ctx, pad, y - 18, 36, 36, 9);
+        var iconBg = ctx.createLinearGradient(pad, y - 18, pad + 36, y + 18);
+        iconBg.addColorStop(0, '#1a7373');
+        iconBg.addColorStop(1, '#0d4f4f');
+        ctx.fillStyle = iconBg;
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(201, 168, 76, 0.4)';
+        ctx.lineWidth = 1;
+        roundRect(ctx, pad, y - 18, 36, 36, 9);
+        ctx.stroke();
+
+        ctx.font = '20px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.icon, pad + 18, y + 6);
+
+        // Label
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.93)';
+        ctx.font = '500 17px Outfit, sans-serif';
+        ctx.textAlign = 'left';
+        wrapText(ctx, item.label, pad + 48, y + 4, w - pad * 2 - 48, 20);
+        y += rowH;
       });
-    })();
+
+      refreshCanvasTexture(amenitiesImgEl);
+    }
+
+    function roundRect(ctx, x, y, width, height, radius) {
+      ctx.beginPath();
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    }
+
+    function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+      var words = text.split(' ');
+      var line = '';
+      var lines = [];
+      words.forEach(function (word) {
+        var test = line ? line + ' ' + word : word;
+        if (ctx.measureText(test).width > maxWidth && line) {
+          lines.push(line);
+          line = word;
+        } else {
+          line = test;
+        }
+      });
+      if (line) lines.push(line);
+      lines.forEach(function (ln, i) {
+        ctx.fillText(ln, x, y + i * lineHeight);
+      });
+    }
+
+    function refreshCanvasTexture(el) {
+      if (!el) return;
+      var mesh = el.getObject3D('mesh');
+      if (mesh && mesh.material && mesh.material.map) {
+        mesh.material.map.needsUpdate = true;
+      }
+    }
 
     function setAspectRatio(el, maxSize) {
       var src = el.getAttribute('src');
@@ -400,50 +398,53 @@
         }
         el.setAttribute('width', width);
         el.setAttribute('height', height);
-        if (el.id === 'reel-video') updateVideoFrame();
       };
       img.src = fullSrc;
     }
 
-    function setVideoAspectRatio(videoPlaneEl, videoAssetEl, maxSize) {
-      if (!videoPlaneEl || !videoAssetEl) return;
-      function apply() {
-        var w = videoAssetEl.videoWidth;
-        var h = videoAssetEl.videoHeight;
-        if (!w || !h) return;
-        var width, height;
-        if (w >= h) {
-          width = maxSize;
-          height = maxSize * (h / w);
-        } else {
-          height = maxSize;
-          width = maxSize * (w / h);
-        }
-        videoPlaneEl.setAttribute('width', width);
-        videoPlaneEl.setAttribute('height', height);
-        updateVideoFrame();
+    function setCardVideoFit() {
+      if (!reelVideoEl || !reelVid) return;
+      var w = reelVid.videoWidth;
+      var h = reelVid.videoHeight;
+      if (!w || !h) return;
+      var cardAspect = CARD_W / CARD_H;
+      var videoAspect = w / h;
+      var width, height;
+      // Cover the card area (like replacing the printed card)
+      if (videoAspect > cardAspect) {
+        height = CARD_H;
+        width = CARD_H * videoAspect;
+      } else {
+        width = CARD_W;
+        height = CARD_W / videoAspect;
       }
-      if (videoAssetEl.readyState >= 1) apply();
-      else videoAssetEl.addEventListener('loadedmetadata', apply, { once: true });
+      reelVideoEl.setAttribute('width', width);
+      reelVideoEl.setAttribute('height', height);
+      reelVideoEl.setAttribute('position', '0 0 0.02');
     }
 
-    function updateVideoFrame() {
-      var frame = document.getElementById('video-frame');
-      if (!frame || !reelVideoEl) return;
-      var vw = parseFloat(reelVideoEl.getAttribute('width')) || 0.38;
-      var vh = parseFloat(reelVideoEl.getAttribute('height')) || 0.67;
-      frame.setAttribute('width', vw + 0.03);
-      frame.setAttribute('height', vh + 0.03);
+    function setCanvasAspectRatio(el, canvasEl, maxSize) {
+      if (!el || !canvasEl) return;
+      var w = canvasEl.width;
+      var h = canvasEl.height;
+      var width, height;
+      if (w >= h) {
+        width = maxSize;
+        height = maxSize * (h / w);
+      } else {
+        height = maxSize;
+        width = maxSize * (w / h);
+      }
+      el.setAttribute('width', width);
+      el.setAttribute('height', height);
     }
 
     document.querySelector('a-scene').addEventListener('loaded', function () {
-      var mainImg = document.getElementById('main-img');
-      if (mainImg) {
-        mainImg.setAttribute('width', CARD_W);
-        mainImg.setAttribute('height', CARD_H);
-      }
-      setAspectRatio(document.getElementById('building-img'), BUILDING_MAX);
-      setVideoAspectRatio(reelVideoEl, reelVid, VIDEO_MAX);
+      drawAmenitiesCanvas();
+      setAspectRatio(document.getElementById('building-img'), SIDE_MAX);
+      setCanvasAspectRatio(amenitiesImgEl, amenitiesCanvas, SIDE_MAX);
+      if (reelVid.readyState >= 1) setCardVideoFit();
+      else reelVid.addEventListener('loadedmetadata', setCardVideoFit, { once: true });
     });
 
     function playVideoWithSound() {
@@ -487,8 +488,6 @@
 
     function showUI() {
       statusEl.classList.add('hidden');
-      amenitiesPanel.classList.add('visible');
-      amenitiesPanel.setAttribute('aria-hidden', 'false');
       socialBar.classList.add('visible');
       socialBar.setAttribute('aria-hidden', 'false');
       audioBtn.classList.add('visible');
@@ -496,8 +495,6 @@
 
     function hideUI() {
       statusEl.classList.remove('hidden');
-      amenitiesPanel.classList.remove('visible');
-      amenitiesPanel.setAttribute('aria-hidden', 'true');
       socialBar.classList.remove('visible');
       socialBar.setAttribute('aria-hidden', 'true');
       audioBtn.classList.remove('visible');
@@ -507,7 +504,8 @@
       showUI();
       resetLayers();
       setTimeout(playLayerAnimations, 40);
-      setVideoAspectRatio(reelVideoEl, reelVid, VIDEO_MAX);
+      setCardVideoFit();
+      drawAmenitiesCanvas();
       playVideoWithSound();
     });
 
