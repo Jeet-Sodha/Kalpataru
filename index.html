@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Kalpataru Limited — AR Experience</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+  <style>
+    :root {
+      --font: 'Outfit', system-ui, sans-serif;
+      --font-display: 'Cormorant Garamond', Georgia, serif;
+      --teal: #0d4f4f;
+      --teal-light: #1a7373;
+      --gold: #c9a84c;
+      --gold-soft: rgba(201, 168, 76, 0.35);
+      --glass: rgba(8, 32, 32, 0.82);
+      --glass-border: rgba(201, 168, 76, 0.45);
+    }
+
+    * { box-sizing: border-box; }
+
+    #target-status {
+      position: fixed;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      max-width: 340px;
+      width: calc(100% - 32px);
+      padding: 13px 20px;
+      background: linear-gradient(135deg, var(--teal) 0%, #062e2e 100%);
+      color: #fff;
+      font-family: var(--font);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      box-shadow: 0 8px 28px rgba(13, 79, 79, 0.55);
+      z-index: 9999;
+      border: 1px solid var(--glass-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+    #target-status::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      background: var(--gold);
+      border-radius: 50%;
+      animation: pulse-dot 1.2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+    #target-status.hidden { display: none; }
+
+    /* ── Amenities panel (left) ── */
+    #amenities-panel {
+      position: fixed;
+      top: 50%;
+      left: 12px;
+      transform: translateY(-50%) translateX(-110%);
+      width: min(210px, 42vw);
+      z-index: 9998;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.45s ease;
+    }
+    #amenities-panel.visible {
+      transform: translateY(-50%) translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .amenities-card {
+      background: var(--glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--glass-border);
+      border-radius: 16px;
+      padding: 16px 14px 14px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+    }
+    .amenities-card h2 {
+      margin: 0 0 12px;
+      font-family: var(--font-display);
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      line-height: 1.1;
+      border-bottom: 1px solid var(--gold-soft);
+      padding-bottom: 10px;
+    }
+    .amenities-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 7px;
+    }
+    .amenities-list li {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-family: var(--font);
+      font-size: 11.5px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.92);
+      line-height: 1.25;
+      opacity: 0;
+      transform: translateX(-12px);
+      animation: amenity-in 0.5s ease forwards;
+    }
+    .amenities-list li .icon {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, var(--teal-light), var(--teal));
+      border: 1px solid var(--gold-soft);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+    }
+    @keyframes amenity-in {
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    /* ── Social bar (bottom) ── */
+    #social-bar {
+      position: fixed;
+      bottom: 22px;
+      left: 50%;
+      transform: translateX(-50%) translateY(80px);
+      z-index: 9998;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+    }
+    #social-bar.visible {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .social-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 18px;
+      border-radius: 999px;
+      text-decoration: none;
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      color: #fff;
+      letter-spacing: 0.03em;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .social-link:hover { transform: translateY(-2px); }
+    .social-link.insta {
+      background: linear-gradient(135deg, #833ab4, #fd1d1d, #fcb045);
+      box-shadow: 0 8px 22px rgba(131, 58, 180, 0.4);
+    }
+    .social-link.web {
+      background: linear-gradient(135deg, var(--teal-light), var(--teal));
+      box-shadow: 0 8px 22px rgba(13, 79, 79, 0.45);
+    }
+    .social-link svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+      flex-shrink: 0;
+    }
+
+    #video-audio-toggle {
+      position: fixed;
+      bottom: 78px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 9px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: #fff;
+      font-family: var(--font);
+      font-weight: 600;
+      font-size: 13px;
+      letter-spacing: 0.03em;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.25);
+      z-index: 9999;
+      display: none;
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      user-select: none;
+    }
+    #video-audio-toggle.visible { display: block; }
+
+    @media (max-width: 480px) {
+      #amenities-panel { width: min(185px, 44vw); left: 8px; }
+      .amenities-card h2 { font-size: 17px; }
+      .amenities-list li { font-size: 10.5px; }
+      .social-link { padding: 9px 14px; font-size: 12px; }
+      .social-link span.label { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div id="target-status">Point camera at Kalpataru card</div>
+
+  <div id="amenities-panel" aria-hidden="true">
+    <div class="amenities-card">
+      <h2>Premium Amenities</h2>
+      <ul class="amenities-list" id="amenities-list"></ul>
+    </div>
+  </div>
+
+  <div id="social-bar" aria-hidden="true">
+    <a class="social-link insta" href="https://www.instagram.com/kalpatarulimited/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+      <span class="label">Instagram</span>
+    </a>
+    <a class="social-link web" href="https://www.kalpataru.com/" target="_blank" rel="noopener">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+      <span class="label">Website</span>
+    </a>
+  </div>
+
+  <button id="video-audio-toggle" type="button" aria-label="Toggle video sound">Mute video</button>
+
+  <a-scene
+    mindar-image="imageTargetSrc: ./targets.mind;"
+    vr-mode-ui="enabled: false"
+    device-orientation-permission-ui="enabled: false"
+    embedded
+  >
+    <a-assets timeout="60000">
+      <video
+        id="reel-vid"
+        src="kalpataru-reel.mp4"
+        preload="auto"
+        loop
+        playsinline
+        webkit-playsinline
+        crossorigin="anonymous"
+      ></video>
+    </a-assets>
+
+    <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+
+    <a-entity id="target-0" mindar-image-target="targetIndex: 0">
+      <!-- Card overlay (landscape 1072×831) -->
+      <a-image
+        id="main-img"
+        src="kalpataru-card.png"
+        position="0 0 0.01"
+        width="1"
+        height="0.775"
+      ></a-image>
+
+      <!-- Center: Instagram reel -->
+      <a-video
+        class="ar-layer"
+        id="reel-video"
+        src="#reel-vid"
+        position="0 0.04 0.06"
+        width="0.38"
+        height="0.67"
+        material="opacity: 0; transparent: true"
+        animation__in="property: material.opacity; from: 0; to: 1; dur: 1200; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+        animation__pos="property: position; from: 0 0 -0.08; to: 0 0.04 0.06; dur: 1200; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+      ></a-video>
+
+      <!-- Right: building render -->
+      <a-image
+        class="ar-layer"
+        id="building-img"
+        src="building.jpg"
+        position="0 0 -0.1"
+        width="0.42"
+        height="0.54"
+        material="opacity: 0"
+        animation__opacity="property: material.opacity; from: 0; to: 1; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+        animation__position="property: position; from: 0 0 -0.1; to: 0.82 0 0.05; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+      ></a-image>
+
+      <!-- Decorative gold frame around video -->
+      <a-plane
+        class="ar-layer"
+        id="video-frame"
+        position="0 0.04 0.055"
+        width="0.41"
+        height="0.70"
+        color="#c9a84c"
+        material="opacity: 0; shader: flat"
+        animation__opacity="property: material.opacity; from: 0; to: 0.55; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+        animation__position="property: position; from: 0 0 -0.08; to: 0 0.04 0.055; dur: 1400; easing: easeInOutSine; fill: forwards; startEvents: playIn"
+      ></a-plane>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    var AMENITIES = [
+      { icon: '🏋️', label: 'Gymnasium' },
+      { icon: '🏛️', label: 'Clubhouse' },
+      { icon: '💦', label: 'Kids Pool' },
+      { icon: '🌿', label: 'Landscaped Garden' },
+      { icon: '🎬', label: 'Mini-Theatre' },
+      { icon: '🎱', label: 'Pool Table Room' },
+      { icon: '🏊', label: 'Swimming Pools & Sunken Lounger Area' },
+      { icon: '🎵', label: 'Music Room' }
+    ];
+
+    var CARD_W = 1;
+    var CARD_H = 831 / 1072;
+    var VIDEO_MAX = 0.68;
+    var BUILDING_MAX = 0.58;
+    var savedVideoTime = 0;
+
+    var statusEl = document.getElementById('target-status');
+    var amenitiesPanel = document.getElementById('amenities-panel');
+    var socialBar = document.getElementById('social-bar');
+    var audioBtn = document.getElementById('video-audio-toggle');
+    var targetEl = document.getElementById('target-0');
+    var reelVid = document.getElementById('reel-vid');
+    var reelVideoEl = document.getElementById('reel-video');
+
+    var layerFromPositions = {
+      'reel-video': '0 0 -0.08',
+      'building-img': '0 0 -0.1',
+      'video-frame': '0 0 -0.08'
+    };
+
+    // Build amenities list with staggered animation delays
+    (function buildAmenities() {
+      var list = document.getElementById('amenities-list');
+      AMENITIES.forEach(function (item, i) {
+        var li = document.createElement('li');
+        li.style.animationDelay = (0.15 + i * 0.08) + 's';
+        li.innerHTML = '<span class="icon">' + item.icon + '</span><span>' + item.label + '</span>';
+        list.appendChild(li);
+      });
+    })();
+
+    function setAspectRatio(el, maxSize) {
+      var src = el.getAttribute('src');
+      if (!src) return;
+      var fullSrc = new URL(src, window.location.href).href;
+      var img = new Image();
+      img.onload = function () {
+        var w = img.naturalWidth;
+        var h = img.naturalHeight;
+        var width, height;
+        if (w >= h) {
+          width = maxSize;
+          height = maxSize * (h / w);
+        } else {
+          height = maxSize;
+          width = maxSize * (w / h);
+        }
+        el.setAttribute('width', width);
+        el.setAttribute('height', height);
+        if (el.id === 'reel-video') updateVideoFrame();
+      };
+      img.src = fullSrc;
+    }
+
+    function setVideoAspectRatio(videoPlaneEl, videoAssetEl, maxSize) {
+      if (!videoPlaneEl || !videoAssetEl) return;
+      function apply() {
+        var w = videoAssetEl.videoWidth;
+        var h = videoAssetEl.videoHeight;
+        if (!w || !h) return;
+        var width, height;
+        if (w >= h) {
+          width = maxSize;
+          height = maxSize * (h / w);
+        } else {
+          height = maxSize;
+          width = maxSize * (w / h);
+        }
+        videoPlaneEl.setAttribute('width', width);
+        videoPlaneEl.setAttribute('height', height);
+        updateVideoFrame();
+      }
+      if (videoAssetEl.readyState >= 1) apply();
+      else videoAssetEl.addEventListener('loadedmetadata', apply, { once: true });
+    }
+
+    function updateVideoFrame() {
+      var frame = document.getElementById('video-frame');
+      if (!frame || !reelVideoEl) return;
+      var vw = parseFloat(reelVideoEl.getAttribute('width')) || 0.38;
+      var vh = parseFloat(reelVideoEl.getAttribute('height')) || 0.67;
+      frame.setAttribute('width', vw + 0.03);
+      frame.setAttribute('height', vh + 0.03);
+    }
+
+    document.querySelector('a-scene').addEventListener('loaded', function () {
+      var mainImg = document.getElementById('main-img');
+      if (mainImg) {
+        mainImg.setAttribute('width', CARD_W);
+        mainImg.setAttribute('height', CARD_H);
+      }
+      setAspectRatio(document.getElementById('building-img'), BUILDING_MAX);
+      setVideoAspectRatio(reelVideoEl, reelVid, VIDEO_MAX);
+    });
+
+    function playVideoWithSound() {
+      if (!reelVid) return;
+      reelVid.muted = false;
+      reelVid.volume = 1;
+      try { reelVid.currentTime = savedVideoTime || 0; } catch (e) {}
+      var playPromise = reelVid.play();
+      if (playPromise && playPromise.catch) {
+        playPromise.catch(function () {
+          // Mobile may block unmuted autoplay — fall back to muted, show toggle
+          reelVid.muted = true;
+          reelVid.play();
+          if (audioBtn) audioBtn.textContent = 'Unmute video';
+        });
+      }
+      if (audioBtn) audioBtn.textContent = reelVid.muted ? 'Unmute video' : 'Mute video';
+    }
+
+    function pauseVideo() {
+      if (!reelVid) return;
+      try { savedVideoTime = reelVid.currentTime || 0; } catch (e) {}
+      try { reelVid.pause(); } catch (e) {}
+    }
+
+    function resetLayers() {
+      targetEl.querySelectorAll('.ar-layer').forEach(function (el) {
+        var id = el.getAttribute('id');
+        if (layerFromPositions[id]) {
+          el.setAttribute('position', layerFromPositions[id]);
+          el.setAttribute('material', 'opacity', 0);
+        }
+      });
+    }
+
+    function playLayerAnimations() {
+      targetEl.querySelectorAll('.ar-layer').forEach(function (el) {
+        el.emit('playIn');
+      });
+    }
+
+    function showUI() {
+      statusEl.classList.add('hidden');
+      amenitiesPanel.classList.add('visible');
+      amenitiesPanel.setAttribute('aria-hidden', 'false');
+      socialBar.classList.add('visible');
+      socialBar.setAttribute('aria-hidden', 'false');
+      audioBtn.classList.add('visible');
+    }
+
+    function hideUI() {
+      statusEl.classList.remove('hidden');
+      amenitiesPanel.classList.remove('visible');
+      amenitiesPanel.setAttribute('aria-hidden', 'true');
+      socialBar.classList.remove('visible');
+      socialBar.setAttribute('aria-hidden', 'true');
+      audioBtn.classList.remove('visible');
+    }
+
+    targetEl.addEventListener('targetFound', function () {
+      showUI();
+      resetLayers();
+      setTimeout(playLayerAnimations, 40);
+      setVideoAspectRatio(reelVideoEl, reelVid, VIDEO_MAX);
+      playVideoWithSound();
+    });
+
+    targetEl.addEventListener('targetLost', function () {
+      hideUI();
+      pauseVideo();
+      resetLayers();
+    });
+
+    audioBtn.addEventListener('click', function () {
+      if (!reelVid) return;
+      reelVid.muted = !reelVid.muted;
+      reelVid.volume = 1;
+      audioBtn.textContent = reelVid.muted ? 'Unmute video' : 'Mute video';
+      reelVid.play();
+    });
+  </script>
+</body>
+</html>
